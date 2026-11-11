@@ -530,7 +530,7 @@ Copy `.env.example` to `.env` for local configuration. Never commit `.env` or re
 
 ## Streamlit demo UI
 
-The local Streamlit console gives you one place to try the implemented flows: upload and list knowledge documents, ask a question and inspect citations, look up synthetic orders/tickets, and load and decide pending human-review workflows. It calls FastAPI over HTTP; provider keys remain in the API's `.env` and are never entered into the UI.
+The local Streamlit console gives you one place to try the implemented flows: upload and list knowledge documents, ask a question and inspect citations, look up synthetic orders/tickets, load and decide pending human-review workflows, and review the saved agent/retrieval evaluation baselines. It calls FastAPI over HTTP; provider keys remain in the API's `.env` and are never entered into the UI.
 
 Start the complete local demo, including the containerized UI:
 
@@ -576,7 +576,7 @@ This milestone does not measure Gemini answer factuality, token cost, load capac
 - Milestone 5: complete; 36 tests pass, and live Compose checks verified cited knowledge answers, order-ID collection, and urgent complaint escalation.
 - Milestone 6: mock order and ticket lookup tools are tenant-scoped and read-only; run the seeder and use `ORD-1001` or `TKT-2001` for the demo.
 - Milestone 7: PostgreSQL checkpointing and human approval implemented; automated pause/resume tests use `InMemorySaver`. The current API image exposes status and decision endpoints; durable PostgreSQL pause/resume has not been exercised end to end yet.
-- Milestone 8: initial Streamlit testing console implemented for document ingestion, knowledge answers, order/ticket lookups, and human approval. Loopback health responds; a full browser workflow check is still useful.
+- Milestone 8: Streamlit console supports document ingestion, knowledge answers, order/ticket lookups, human approval, and saved evaluation results. The full UI workflow still needs a manual browser walkthrough.
 - Milestone 9: versioned agent and retrieval datasets, offline graph evaluator, live retrieval evaluator, and tests added; 47 tests pass. Agent and live retrieval baselines are recorded in `reports/evaluation/` with their measurement scope and limits.
 - Milestone 10: the full local Compose stack includes the Streamlit UI; deployment guidance, portfolio case study, demo script, and Upwork portfolio copy are documented.
 

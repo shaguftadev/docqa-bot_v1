@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import json
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -94,8 +96,16 @@ def show_run_result(result: dict[str, Any]) -> None:
                 st.markdown(f"- {event}")
 
 
-ask_tab, records_tab, approvals_tab, docs_tab = st.tabs(
-    ["Ask SupportPilot", "Orders & Tickets", "Human Review", "Knowledge Documents"]
+def load_evaluation_report(filename: str) -> dict[str, Any] | None:
+    report_path = Path(__file__).resolve().parents[1] / "reports" / "evaluation" / filename
+    try:
+        return json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+ask_tab, records_tab, approvals_tab, docs_tab, eval_tab = st.tabs(
+    ["Ask SupportPilot", "Orders & Tickets", "Human Review", "Knowledge Documents", "Evaluation"]
 )
 
 with ask_tab:
@@ -259,6 +269,79 @@ with docs_tab:
         )
     else:
         st.caption("No indexed documents were returned for this tenant yet.")
+
+with eval_tab:
+    st.subheader("Evaluation results")
+    st.write(
+        "These are saved baseline reports from the checked-in synthetic evaluation sets. "
+        "They are engineering checks, not production accuracy or customer-impact claims."
+    )
+
+    agent_report = load_evaluation_report("agent_baseline.json")
+    if agent_report:
+        st.markdown("#### Agent workflow baseline")
+        st.caption(
+            f"{agent_report.get('cases', 0)} hand-authored cases · "
+            f"generated {agent_report.get('generated_at_utc', 'unknown')}"
+        )
+        agent_metrics = agent_report.get("metrics", {})
+        metric_columns = st.columns(min(3, max(1, len(agent_metrics))))
+        for index, (name, score) in enumerate(agent_metrics.items()):
+            metric_columns[index % len(metric_columns)].metric(
+                name.replace("_", " ").title(), f"{score:.0%}"
+            )
+        latency = agent_report.get("workflow_latency_ms", {})
+        latency_cols = st.columns(2)
+        latency_cols[0].metric("Graph p50", f"{latency.get('p50', 0):.2f} ms")
+        latency_cols[1].metric("Graph p95", f"{latency.get('p95', 0):.2f} ms")
+        st.caption(f"Latency scope: {latency.get('scope', 'not recorded')}.")
+        if agent_report.get("passed"):
+            st.success("All labeled agent cases passed in the recorded baseline.")
+        else:
+            st.warning(f"The recorded baseline has {len(agent_report.get('failures', []))} failure(s).")
+    else:
+        st.info("Agent baseline report is unavailable in this UI image.")
+
+    retrieval_report = load_evaluation_report("retrieval_baseline.json")
+    if retrieval_report:
+        st.markdown("#### Retrieval baseline")
+        st.caption(
+            f"{retrieval_report.get('dataset_cases', 0)} queries · "
+            f"generated {retrieval_report.get('generated_at_utc', 'unknown')}"
+        )
+        retrieval_metrics = retrieval_report.get("metrics", {})
+        recall_col, mrr_col = st.columns(2)
+        recall_col.metric(
+            f"Recall@{retrieval_report.get('k', '?')}",
+            f"{retrieval_metrics.get('recall_at_5', 0):.2f}",
+        )
+        mrr_col.metric("MRR", f"{retrieval_metrics.get('mrr', 0):.2f}")
+        latency = retrieval_report.get("search_latency_ms", {})
+        latency_cols = st.columns(3)
+        latency_cols[0].metric("Search p50", f"{latency.get('p50', 0):.2f} ms")
+        latency_cols[1].metric("Search p95", f"{latency.get('p95', 0):.2f} ms")
+        latency_cols[2].metric("Requests", str(latency.get("sample_count", 0)))
+        case_rows = []
+        for case in retrieval_report.get("cases", []):
+            case_rows.append({
+                "Query": case.get("id", ""),
+                "Recall@k": case.get("recall_at_k", 0),
+                "Reciprocal rank": case.get("reciprocal_rank", 0),
+                "Top sections": ", ".join(
+                    hit.get("section", "") for hit in case.get("top_hits", [])[:3]
+                ),
+            })
+        if case_rows:
+            st.dataframe(case_rows, use_container_width=True, hide_index=True)
+        st.caption(f"Latency scope: {latency.get('scope', 'not recorded')}.")
+    else:
+        st.info("Retrieval baseline report is unavailable in this UI image.")
+
+    st.warning(
+        "The agent baseline uses stub tools and an in-memory checkpointer. "
+        "The retrieval baseline covers three queries against one synthetic policy. "
+        "Neither report measures Gemini answer factuality, production traffic, or customer outcomes."
+    )
 
 st.divider()
 st.caption("SupportPilot AI · local portfolio demo · synthetic records only · no automatic customer actions")

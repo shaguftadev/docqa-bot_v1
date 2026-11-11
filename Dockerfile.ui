@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /ui
 
 COPY frontend ./frontend
+COPY reports/evaluation ./reports/evaluation
 
 RUN pip install --no-cache-dir httpx==0.28.1 streamlit==1.67.0
 

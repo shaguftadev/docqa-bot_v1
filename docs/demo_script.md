@@ -22,7 +22,7 @@ In **Ask SupportPilot**, submit: “I want to complain about an unsafe product.�
 
 ## 1:25–1:45 — Show evaluation and engineering limits
 
-Briefly show `reports/evaluation/agent_baseline.json` and `reports/evaluation/retrieval_baseline.json`. State that these are small synthetic baselines: 19 routing examples and three queries over one policy, not production accuracy or customer-impact claims.
+Open the **Evaluation** tab and show the saved agent and retrieval baselines. State that these are small synthetic baselines: 19 routing examples and three queries over one policy, not production accuracy or customer-impact claims. The source reports are `reports/evaluation/agent_baseline.json` and `reports/evaluation/retrieval_baseline.json`.
 
 ## 1:45–2:00 — Close with boundaries
 
