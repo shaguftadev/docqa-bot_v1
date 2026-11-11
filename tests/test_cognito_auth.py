@@ -22,6 +22,7 @@ from app.embeddings.provider import get_embedder
 from app.main import app
 from app.rag.qdrant_store import get_vector_store
 from app.agent.checkpointer import get_checkpointer
+from infra.cognito.pre_token_generation import lambda_handler
 
 
 @pytest.fixture
@@ -162,3 +163,30 @@ def test_sensitive_routes_reject_other_tenant(method, path, body):
 def test_nonlocal_settings_require_authentication():
     with pytest.raises(ValueError, match="AUTH_ENABLED"):
         Settings(_env_file=None, app_env="production", auth_enabled=False)
+
+
+def test_cognito_trigger_adds_only_trusted_access_token_tenant_claim():
+    event = {
+        "version": "2",
+        "request": {"userAttributes": {"custom:tenant_id": "tenant-a"}},
+        "response": {"claimsAndScopeOverrideDetails": []},
+    }
+
+    result = lambda_handler(event, None)
+
+    assert result["response"]["claimsAndScopeOverrideDetails"] == {
+        "accessTokenGeneration": {"claimsToAddOrOverride": {"tenant_id": "tenant-a"}}
+    }
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        {"version": "1", "request": {"userAttributes": {"custom:tenant_id": "tenant-a"}}},
+        {"version": "2", "request": {"userAttributes": {}}},
+        {"version": "2", "request": {"userAttributes": {"custom:tenant_id": "bad tenant"}}},
+    ],
+)
+def test_cognito_trigger_fails_closed_for_untrusted_tenant_state(event):
+    with pytest.raises(ValueError):
+        lambda_handler(event, None)

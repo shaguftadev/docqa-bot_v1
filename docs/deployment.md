@@ -42,7 +42,7 @@ COGNITO_APP_CLIENT_ID=<app-client-id>
 COGNITO_TENANT_CLAIM=tenant_id
 ```
 
-Configure a Cognito pre-token-generation trigger to add a trusted `tenant_id` claim to **access tokens**. Do not let end users edit the claim as a writable profile attribute. AWS documents that pre-token-generation triggers can customize access-token claims ([trigger guide](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html)).
+Configure a Cognito pre-token-generation trigger to add a trusted `tenant_id` claim to **access tokens**. Do not let end users edit the claim as a writable profile attribute. See the [Cognito setup guide](cognito_setup.md) for a reference Lambda, claim assignment rules, and verification steps. AWS documents that pre-token-generation triggers can customize access-token claims ([trigger guide](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html)).
 
 The Streamlit UI has a password-style field for a short-lived Cognito access token; it does not implement the Cognito hosted sign-in flow, refresh, logout, or secure browser session management. This API validation is a security foundation, not authorization-complete production SSO. Keep the application private until the remaining readiness checklist is closed.
 

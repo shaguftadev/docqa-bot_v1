@@ -6,7 +6,7 @@ This document tracks work required before SupportPilot AI can serve real custome
 
 **Public production launch: blocked.** Keep the current Compose stack private and use synthetic data until the P0 controls below are implemented and verified. Completing this checklist is necessary but does not by itself constitute a security certification.
 
-The initial Cognito verifier and tenant-claim enforcement are implemented behind `AUTH_ENABLED`. Seventeen focused token/configuration and cross-tenant API checks and the complete 64-test suite pass. These tests use generated signing keys; no AWS Cognito user pool, real token, pre-token-generation trigger, or hosted sign-in flow has been configured or exercised.
+The initial Cognito verifier and tenant-claim enforcement are implemented behind `AUTH_ENABLED`, with a reference pre-token-generation handler and setup guide. The complete suite passes 68 tests, including 21 focused token, trigger, and cross-tenant checks. These tests use generated signing keys; no AWS Cognito user pool, real token, trigger deployment, or hosted sign-in flow has been configured or exercised.
 
 ## P0 — identity, tenant boundaries, and exposure
 
