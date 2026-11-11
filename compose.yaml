@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: supportpilot
+      POSTGRES_USER: supportpilot
+      POSTGRES_PASSWORD: localdevonly
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supportpilot -d supportpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  api:
+    build: .
+    environment:
+      APP_ENV: local
+      APP_NAME: SupportPilot AI
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+psycopg://supportpilot:localdevonly@postgres:5432/supportpilot
+      QDRANT_URL: http://qdrant:6333
+      FASTEMBED_CACHE_PATH: /models/fastembed
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+    volumes:
+      - embedding_model_cache:/models/fastembed
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  embedding_model_cache:
