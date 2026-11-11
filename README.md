@@ -532,15 +532,15 @@ Copy `.env.example` to `.env` for local configuration. Never commit `.env` or re
 
 The local Streamlit console gives you one place to try the implemented flows: upload and list knowledge documents, ask a question and inspect citations, look up synthetic orders/tickets, and load and decide pending human-review workflows. It calls FastAPI over HTTP; provider keys remain in the API's `.env` and are never entered into the UI.
 
-Install the optional UI dependency and launch the API and UI in separate PowerShell terminals:
+Start the complete local demo, including the containerized UI:
 
 ```powershell
-python -m pip install -e ".[dev,ui]"
 docker compose up --build -d
-streamlit run frontend/streamlit_app.py --server.address 127.0.0.1
 ```
 
-Open `http://localhost:8501`. The API defaults to `http://127.0.0.1:8000`; use **Check API** in the sidebar to verify readiness. Upload a policy first, then ask a question on **Ask SupportPilot**. For mock lookup examples, seed the demo records with `docker compose exec api python -m scripts.seed_demo_records`, then use `ORD-1001` or `TKT-2001` on **Orders & Tickets**. Start a sensitive complaint to see it appear in **Human Review**, where you can approve an edited draft or reject it for triage. The interface does not send messages.
+Open `http://127.0.0.1:8501`. The UI container reaches FastAPI over the internal Compose network, and the API is available on the host at `http://127.0.0.1:8000`. Use **Check API** in the sidebar to verify readiness. Upload a policy first, then ask a question on **Ask SupportPilot**. For mock lookup examples, seed the demo records with `docker compose exec api python -m scripts.seed_demo_records`, then use `ORD-1001` or `TKT-2001` on **Orders & Tickets**. Start a sensitive complaint to see it appear in **Human Review**, where you can approve an edited draft or reject it for triage. The interface does not send messages.
+
+See [deployment and operations guidance](docs/deployment.md) and the [two-minute demo script](docs/demo_script.md).
 
 The UI is intended for a local synthetic-data demo. The API has no authentication, so do not bind the UI or API to a public interface.
 
@@ -578,6 +578,8 @@ This milestone does not measure Gemini answer factuality, token cost, load capac
 - Milestone 7: PostgreSQL checkpointing and human approval implemented; automated pause/resume tests use `InMemorySaver`. The current API image exposes status and decision endpoints; durable PostgreSQL pause/resume has not been exercised end to end yet.
 - Milestone 8: initial Streamlit testing console implemented for document ingestion, knowledge answers, order/ticket lookups, and human approval. Loopback health responds; a full browser workflow check is still useful.
 - Milestone 9: versioned agent and retrieval datasets, offline graph evaluator, live retrieval evaluator, and tests added; 47 tests pass. Agent and live retrieval baselines are recorded in `reports/evaluation/` with their measurement scope and limits.
-- Milestone 10: not started.
+- Milestone 10: the full local Compose stack includes the Streamlit UI; deployment guidance, portfolio case study, demo script, and Upwork portfolio copy are documented.
+
+See the [portfolio case study](docs/portfolio_case_study.md) for architecture, measured results, and limitations, and [Upwork portfolio copy and service packages](docs/upwork_portfolio.md) for editable profile material. The Compose stack is for local/private demos only, not public customer traffic.
 
 SupportPilot AI is an independently developed portfolio project, not a client-sponsored deployment.

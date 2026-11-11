@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import streamlit as st
@@ -31,7 +32,10 @@ for key, default in (("last_support_result", None), ("last_workflow_status", Non
 
 with st.sidebar:
     st.subheader("Connection")
-    api_base_url = st.text_input("FastAPI URL", "http://127.0.0.1:8000").strip().rstrip("/")
+    api_base_url = st.text_input(
+        "FastAPI URL",
+        os.getenv("SUPPORTPILOT_API_URL", "http://127.0.0.1:8000"),
+    ).strip().rstrip("/")
     tenant_id = st.text_input("Tenant ID", "demo").strip() or "demo"
     st.caption("Demo tenant only. Authentication is not enabled.")
     if st.button("Check API", use_container_width=True):
