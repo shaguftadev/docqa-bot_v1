@@ -32,6 +32,11 @@ services:
       FASTEMBED_CACHE_PATH: /models/fastembed
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-}
+      COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:-}
+      COGNITO_TENANT_CLAIM: ${COGNITO_TENANT_CLAIM:-tenant_id}
+      COGNITO_RESOURCE_AUDIENCE: ${COGNITO_RESOURCE_AUDIENCE:-}
     volumes:
       - embedding_model_cache:/models/fastembed
     ports:

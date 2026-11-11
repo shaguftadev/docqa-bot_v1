@@ -6,12 +6,14 @@ This document tracks work required before SupportPilot AI can serve real custome
 
 **Public production launch: blocked.** Keep the current Compose stack private and use synthetic data until the P0 controls below are implemented and verified. Completing this checklist is necessary but does not by itself constitute a security certification.
 
+The initial Cognito verifier and tenant-claim enforcement are implemented behind `AUTH_ENABLED`. Seventeen focused token/configuration and cross-tenant API checks and the complete 64-test suite pass. These tests use generated signing keys; no AWS Cognito user pool, real token, pre-token-generation trigger, or hosted sign-in flow has been configured or exercised.
+
 ## P0 — identity, tenant boundaries, and exposure
 
 | Gap | Current state | Work required | Closure evidence |
 |---|---|---|---|
-| Authentication | Open | Add a supported identity provider or API authentication scheme for the API and UI. Define session/token expiry and account recovery behavior. | Unauthorized requests are rejected; authenticated UI and API flows pass integration checks. |
-| Authorization and tenant isolation | Open | Derive tenant scope from verified identity. Do not trust caller-supplied `tenant_id` as authorization. Apply tenant checks to documents, retrieval, records, approvals, workflow status, and checkpoints. | Cross-tenant access tests cover every tenant-owned endpoint and prove access is denied. |
+| Authentication | In progress | The API can validate Cognito RS256 access tokens when enabled. Configure a user pool/app client, integrate UI sign-in or a managed auth proxy, and define short token lifetime, revocation, and account recovery behavior. | Unauthorized API requests are rejected; real Cognito-issued access tokens pass; ID tokens, wrong issuer/client, expired tokens, and missing-tenant tokens fail; UI sign-in and session handling are reviewed. |
+| Authorization and tenant isolation | In progress | Tenant-bearing API routes compare the requested tenant to the verified access-token `tenant_id` claim. Configure a Cognito pre-token-generation trigger to add this trusted claim, then check all document, retrieval, record, approval, workflow status, and checkpoint flows. Add role/scope checks for approval decisions. | Cross-tenant tests cover every tenant-owned endpoint and prove access is denied. Approval permissions are tested separately from tenant membership. |
 | Public network exposure | Open | Keep internal services on private networks. Add a reviewed HTTPS gateway for any public entry point; do not expose PostgreSQL or Qdrant publicly. | External scan shows only intended HTTPS entry points; direct data-service access is blocked. |
 | Secrets and credentials | Open | Remove local development credentials from deployment configuration. Store provider/database credentials in a secret manager, restrict access, and define rotation/revocation. | Deployment uses managed secrets; rotation and revoked-key behavior are documented and exercised. |
 | Request abuse controls | Open | Add authentication-aware rate limits, request-size and timeout limits, and protection against repeated expensive model calls. | Limits are configured and tested for upload, answer, and agent endpoints. |
@@ -37,8 +39,8 @@ This document tracks work required before SupportPilot AI can serve real custome
 
 ## Suggested execution order
 
-1. Choose the hosting environment and identity provider; record the data classification and tenancy model.
-2. Implement authentication, authorization, and tenant isolation before connecting real customer data.
+1. Choose the hosting environment; configure Cognito user-pool/app-client settings and document the data classification and tenancy model.
+2. Configure and test the signed tenant claim and approval scopes before connecting real customer data.
 3. Add secret handling, private networking, HTTPS, request limits, and deployment controls.
 4. Define retention and backup/recovery; implement and exercise deletion and restore.
 5. Add monitoring, runbooks, capacity limits, and failure handling.

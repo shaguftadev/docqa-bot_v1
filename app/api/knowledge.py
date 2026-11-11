@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.auth import Principal, enforce_tenant_access, get_current_principal
 from app.db.session import get_db
 from app.embeddings.provider import Embedder, EmbeddingProviderError, get_embedder
 from app.rag.qdrant_store import QdrantVectorStore, VectorStoreError, get_vector_store
@@ -20,10 +21,12 @@ router = APIRouter(prefix="/knowledge", tags=["knowledge search"])
 @router.post("/search", response_model=SearchResponse)
 def search_knowledge(
     request: SearchRequest,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     db: Annotated[Session, Depends(get_db)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     vector_store: Annotated[QdrantVectorStore, Depends(get_vector_store)],
 ) -> SearchResponse:
+    enforce_tenant_access(principal, request.tenant_id)
     try:
         hits = KnowledgeSearchService(db, embedder, vector_store).search(
             tenant_id=request.tenant_id,
@@ -46,10 +49,12 @@ def search_knowledge(
 @router.post("/answer", response_model=AnswerResponse)
 def answer_knowledge(
     request: AnswerRequest,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     db: Annotated[Session, Depends(get_db)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     vector_store: Annotated[QdrantVectorStore, Depends(get_vector_store)],
 ) -> AnswerResponse:
+    enforce_tenant_access(principal, request.tenant_id)
     try:
         evidence = KnowledgeSearchService(db, embedder, vector_store).search(
             tenant_id=request.tenant_id,

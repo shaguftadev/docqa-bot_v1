@@ -28,6 +28,24 @@ This is not ready for public customer traffic. It has no authentication or autho
 
 The API startup command applies Alembic migrations before serving. On the first knowledge query, FastEmbed may download its model into the named `embedding_model_cache` volume. Allow enough disk space and initial startup time.
 
+## Cognito API authentication
+
+Local Compose keeps `AUTH_ENABLED=false` for the synthetic demo. For a non-local environment, the API refuses to start unless authentication is enabled and the Cognito issuer and app-client ID are configured. The API accepts Cognito **access tokens only**: it verifies the RS256 signature against the user pool JWKS, exact issuer, expiry, `token_use=access`, and `client_id`. Tenant-scoped routes also require a signed `tenant_id` claim and reject a request whose `tenant_id` differs from that claim. Cognito access tokens use `client_id` and `token_use`; when a resource-server audience is configured, set `COGNITO_RESOURCE_AUDIENCE` to that exact audience. See AWS's [JWT verification guide](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-verifying-a-jwt.html) and [access-token claim reference](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-access-token.html).
+
+Set these values in the deployment environment or secret/configuration manager, not in committed files:
+
+```text
+APP_ENV=production
+AUTH_ENABLED=true
+COGNITO_ISSUER=https://cognito-idp.<region>.amazonaws.com/<user-pool-id>
+COGNITO_APP_CLIENT_ID=<app-client-id>
+COGNITO_TENANT_CLAIM=tenant_id
+```
+
+Configure a Cognito pre-token-generation trigger to add a trusted `tenant_id` claim to **access tokens**. Do not let end users edit the claim as a writable profile attribute. AWS documents that pre-token-generation triggers can customize access-token claims ([trigger guide](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html)).
+
+The Streamlit UI has a password-style field for a short-lived Cognito access token; it does not implement the Cognito hosted sign-in flow, refresh, logout, or secure browser session management. This API validation is a security foundation, not authorization-complete production SSO. Keep the application private until the remaining readiness checklist is closed.
+
 ## Operations
 
 ```powershell

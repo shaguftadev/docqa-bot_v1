@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.auth import Principal, enforce_tenant_access, get_current_principal
 from app.core.config import Settings, get_settings
 from app.db.models import Document
 from app.db.session import get_db
@@ -33,11 +34,13 @@ def get_ingestion_service(
 
 @router.post("/upload", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 def upload_document(
+    principal: Annotated[Principal, Depends(get_current_principal)],
     file: Annotated[UploadFile, File(description="PDF, UTF-8 text, or Markdown")],
     settings: Annotated[Settings, Depends(get_settings)],
     service: Annotated[DocumentIngestionService, Depends(get_ingestion_service)],
     tenant_id: TenantForm = "demo",
 ) -> DocumentResponse:
+    enforce_tenant_access(principal, tenant_id)
     maximum_bytes = settings.upload_max_mb * 1024 * 1024
     content = file.file.read(maximum_bytes + 1)
     if len(content) > maximum_bytes:
@@ -61,9 +64,11 @@ def upload_document(
 
 @router.get("", response_model=list[DocumentResponse])
 def list_documents(
+    principal: Principal = Depends(get_current_principal),
     tenant_id: str = "demo",
     db: Session = Depends(get_db),
 ) -> list[DocumentResponse]:
+    enforce_tenant_access(principal, tenant_id)
     if not tenant_id or len(tenant_id) > 100:
         raise HTTPException(status_code=400, detail="tenant_id must be between 1 and 100 characters")
     documents = db.scalars(
@@ -73,7 +78,13 @@ def list_documents(
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-def get_document(document_id: UUID, tenant_id: str = "demo", db: Session = Depends(get_db)) -> DocumentResponse:
+def get_document(
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    document_id: UUID,
+    tenant_id: str = "demo",
+    db: Session = Depends(get_db),
+) -> DocumentResponse:
+    enforce_tenant_access(principal, tenant_id)
     document = db.scalar(
         select(Document).where(Document.id == document_id, Document.tenant_id == tenant_id)
     )

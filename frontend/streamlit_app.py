@@ -39,7 +39,8 @@ with st.sidebar:
         os.getenv("SUPPORTPILOT_API_URL", "http://127.0.0.1:8000"),
     ).strip().rstrip("/")
     tenant_id = st.text_input("Tenant ID", "demo").strip() or "demo"
-    st.caption("Demo tenant only. Authentication is not enabled.")
+    api_access_token = st.text_input("Cognito access token (optional)", type="password")
+    st.caption("Use an access token, not an ID token. The token is sent to the configured API as a bearer credential.")
     if st.button("Check API", use_container_width=True):
         try:
             health = request_json(api_base_url, "GET", "/health/ready", timeout=5)
@@ -48,6 +49,13 @@ with st.sidebar:
             st.error(str(exc))
     st.divider()
     st.caption("Gemini credentials stay on the API server; they are never sent to this UI.")
+
+
+def call_api(api_base_url: str, method: str, path: str, **kwargs):
+    headers = dict(kwargs.pop("headers", {}))
+    if api_access_token.strip():
+        headers["Authorization"] = f"Bearer {api_access_token.strip()}"
+    return request_json(api_base_url, method, path, headers=headers, **kwargs)
 
 
 def show_citations(citations: list[dict[str, Any]]) -> None:
@@ -129,7 +137,7 @@ with ask_tab:
                 body["ticket_id"] = ticket_id.strip()
             with st.spinner("Running the support workflow…"):
                 try:
-                    st.session_state.last_support_result = request_json(
+                    st.session_state.last_support_result = call_api(
                         api_base_url, "POST", "/agent/run", json=body, timeout=120
                     )
                 except ApiError as exc:
@@ -159,7 +167,7 @@ with records_tab:
             body = {"tenant_id": tenant_id, "message": "Where is my order?" if is_order else "Check my ticket"}
             body["order_id" if is_order else "ticket_id"] = identifier
             try:
-                st.session_state.last_support_result = request_json(
+                st.session_state.last_support_result = call_api(
                     api_base_url, "POST", "/agent/run", json=body, timeout=60
                 )
             except ApiError as exc:
@@ -180,7 +188,7 @@ with approvals_tab:
             st.warning("Enter a workflow ID or first create a sensitive request in Ask SupportPilot.")
         else:
             try:
-                st.session_state.last_workflow_status = request_json(
+                st.session_state.last_workflow_status = call_api(
                     api_base_url, "GET", f"/agent/{workflow_id.strip()}", params={"tenant_id": tenant_id}
                 )
             except ApiError as exc:
@@ -212,7 +220,7 @@ with approvals_tab:
                 if approve:
                     body["edited_answer"] = edited
                 try:
-                    decision_result = request_json(
+                    decision_result = call_api(
                         api_base_url, "POST", f"/agent/{workflow['workflow_id']}/decision", json=body, timeout=60
                     )
                     st.success(f"Decision recorded: {decision_result['status']}. This UI does not send messages.")
@@ -230,7 +238,7 @@ with docs_tab:
     if uploaded and st.button("Upload and index document", type="primary"):
         with st.spinner("Extracting, embedding, and indexing…"):
             try:
-                document = request_json(
+                document = call_api(
                     api_base_url,
                     "POST",
                     "/documents/upload",
@@ -246,7 +254,7 @@ with docs_tab:
         st.session_state.documents = None
     if st.session_state.documents is None:
         try:
-            st.session_state.documents = request_json(
+            st.session_state.documents = call_api(
                 api_base_url, "GET", "/documents", params={"tenant_id": tenant_id}, timeout=10
             )
         except ApiError:

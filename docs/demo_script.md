@@ -26,4 +26,4 @@ Open the **Evaluation** tab and show the saved agent and retrieval baselines. St
 
 ## 1:45–2:00 — Close with boundaries
 
-“The demo is containerized and reproducible. Before connecting real customer systems, I would add identity-based tenant enforcement, authentication, operational backup/restore, privacy controls, and a customer-reviewed evaluation set.”
+"The demo is containerized and reproducible. The API can validate Cognito access tokens and match tenant scope to a signed token claim. Before real customer systems, I would configure the Cognito pool and trusted claim trigger, add hosted UI sign-in and reviewer scopes, then complete backup/restore, privacy, security, and customer-reviewed quality checks."

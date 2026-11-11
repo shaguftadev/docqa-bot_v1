@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.agent.checkpointer import get_checkpointer
 from app.agent.workflow import build_support_graph, initial_state
+from app.core.auth import Principal, enforce_tenant_access, get_current_principal
 from app.db.models import ApprovalRequest, WorkflowExecution
 from app.db.session import get_db
 from app.embeddings.provider import Embedder, EmbeddingProviderError, get_embedder
@@ -94,11 +95,13 @@ def _raise_dependency_error(exc: Exception) -> None:
 def run_support_agent(
     request: AgentRequest,
     http_request: Request,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     db: Annotated[Session, Depends(get_db)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     vector_store: Annotated[QdrantVectorStore, Depends(get_vector_store)],
     checkpointer: Annotated[BaseCheckpointSaver, Depends(get_checkpointer)],
 ) -> AgentResponse:
+    enforce_tenant_access(principal, request.tenant_id)
     workflow_id = uuid4()
     state = initial_state(
         tenant_id=request.tenant_id,
@@ -167,9 +170,11 @@ def run_support_agent(
 @router.get("/{workflow_id}", response_model=WorkflowStatusResponse)
 def get_workflow_status(
     workflow_id: UUID,
-    db: Annotated[Session, Depends(get_db)],
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
     tenant_id: str = Query(default="demo", min_length=1, max_length=100),
 ) -> WorkflowStatusResponse:
+    enforce_tenant_access(principal, tenant_id)
     workflow = db.scalar(select(WorkflowExecution).where(
         WorkflowExecution.id == workflow_id,
         WorkflowExecution.tenant_id == tenant_id,
@@ -198,11 +203,13 @@ def get_workflow_status(
 def decide_human_review(
     workflow_id: UUID,
     decision: ApprovalDecisionRequest,
+    principal: Annotated[Principal, Depends(get_current_principal)],
     db: Annotated[Session, Depends(get_db)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     vector_store: Annotated[QdrantVectorStore, Depends(get_vector_store)],
     checkpointer: Annotated[BaseCheckpointSaver, Depends(get_checkpointer)],
 ) -> AgentResponse:
+    enforce_tenant_access(principal, decision.tenant_id)
     workflow = db.scalar(select(WorkflowExecution).where(
         WorkflowExecution.id == workflow_id,
         WorkflowExecution.tenant_id == decision.tenant_id,
