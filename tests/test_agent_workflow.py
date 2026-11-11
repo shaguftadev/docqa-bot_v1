@@ -3,6 +3,8 @@ from uuid import uuid4
 
 import pytest
 from langchain_core.tools import StructuredTool
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 from pydantic import ValidationError
 
 from app.agent.classification import classify_message
@@ -60,10 +62,12 @@ def run_graph(message: str, *, tool: StructuredTool | None = None, order_id: str
         provider or (lambda: FakeAnswerProvider()),
         order_tool or make_record_tool({"found": False}),
         ticket_tool or make_record_tool({"found": False}),
+        checkpointer=InMemorySaver(),
     )
-    return graph.invoke(initial_state(
-        tenant_id="demo", message=message, order_id=order_id, ticket_id=ticket_id, limit=3
-    ))
+    return graph.invoke(
+        initial_state(tenant_id="demo", message=message, order_id=order_id, ticket_id=ticket_id, limit=3),
+        {"configurable": {"thread_id": "workflow-test"}},
+    )
 
 
 @pytest.mark.parametrize(
@@ -160,7 +164,29 @@ def test_sensitive_complaint_routes_to_human_review():
     result = run_graph("I want to make a complaint about an unsafe product")
     assert result["route"] == "human_review"
     assert result["priority"] == "urgent"
-    assert result["status"] == "escalation_required"
+    assert result["__interrupt__"][0].value["type"] == "human_review"
+
+
+def test_interrupt_resumes_after_human_approval_with_edited_draft():
+    saver = InMemorySaver()
+    graph = build_support_graph(
+        make_tool([]), lambda: FakeAnswerProvider(),
+        make_record_tool({"found": False}), make_record_tool({"found": False}),
+        checkpointer=saver,
+    )
+    config = {"configurable": {"thread_id": "workflow-123"}}
+    paused = graph.invoke(initial_state(
+        tenant_id="demo", message="I want to make a complaint about fraud",
+        order_id=None, ticket_id=None, limit=3,
+    ), config)
+    assert paused["__interrupt__"]
+
+    resumed = graph.invoke(Command(resume={
+        "decision": "approve", "edited_answer": "A specialist will contact you shortly."
+    }), config)
+    assert resumed["status"] == "approved"
+    assert resumed["answer"] == "A specialist will contact you shortly."
+    assert resumed["next_action"] == "send_approved_reply_manually"
 
 
 def test_knowledge_tool_rejects_invalid_limit_before_search():

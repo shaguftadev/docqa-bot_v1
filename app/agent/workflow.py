@@ -3,6 +3,8 @@ from typing import Callable, TypedDict
 
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.types import interrupt
 
 from app.agent.classification import classify_message
 from app.llm.provider import AnswerProvider
@@ -36,6 +38,7 @@ def build_support_graph(
     answer_provider_factory: AnswerProviderFactory,
     order_lookup_tool: BaseTool,
     ticket_lookup_tool: BaseTool,
+    checkpointer: BaseCheckpointSaver | None = None,
 ):
     """Build the per-request, typed support workflow with an explicit search tool."""
     def classify_node(state: SupportState) -> dict:
@@ -130,11 +133,30 @@ def build_support_graph(
         }
 
     def human_review_node(state: SupportState) -> dict:
+        draft = state["answer"] or "A support specialist will review your case and follow up."
+        decision = interrupt({
+            "type": "human_review",
+            "message": "Review this sensitive support request before any reply is sent.",
+            "customer_message": state["message"],
+            "intent": state["intent"],
+            "priority": state["priority"],
+            "draft_answer": draft,
+        })
+        if not isinstance(decision, dict) or decision.get("decision") not in {"approve", "reject"}:
+            raise ValueError("Human review decision must be approve or reject")
+        if decision["decision"] == "approve":
+            answer = decision.get("edited_answer") or draft
+            return {
+                "status": "approved",
+                "answer": answer,
+                "next_action": "send_approved_reply_manually",
+                "events": state["events"] + ["A human approved the suggested reply; it remains unsent."],
+            }
         return {
-            "status": "escalation_required",
-            "answer": "This request needs review by a support agent.",
-            "next_action": "human_review",
-            "events": state["events"] + ["Sensitive complaint routed for human review."],
+            "status": "rejected",
+            "answer": "The suggested reply was rejected and requires manual support handling.",
+            "next_action": "manual_triage",
+            "events": state["events"] + ["A human rejected the suggested reply and requested manual handling."],
         }
 
     def manual_review_node(state: SupportState) -> dict:
@@ -166,7 +188,7 @@ def build_support_graph(
     )
     for terminal_node in ("knowledge_lookup", "order_lookup", "ticket_lookup", "human_review", "manual_review"):
         builder.add_edge(terminal_node, END)
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
 
 
 def initial_state(

@@ -435,13 +435,13 @@ Call the support graph:
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/agent/run -ContentType "application/json" -Body '{"tenant_id":"demo","message":"What should I do if an item arrived damaged?","limit":3}'
 ```
 
-An evidence-backed response includes `intent: "return_refund"`, `route: "knowledge_lookup"`, `status: "answered"`, an answer, citations, and concise `events`. A request such as `Where is my order?` returns `status: "needs_input"` with `next_action: "ask_for_order_id"`. A complaint requiring escalation returns `status: "escalation_required"` and `next_action: "human_review"`. An empty knowledge base returns the fixed abstention. The endpoint does not send messages or change orders.
+An evidence-backed response includes `intent: "return_refund"`, `route: "knowledge_lookup"`, `status: "answered"`, an answer, citations, concise `events`, and a persisted `workflow_id`. A request such as `Where is my order?` returns `status: "needs_input"` with `next_action: "ask_for_order_id"`. A sensitive complaint returns `status: "approval_pending"` and a `workflow_id` for review. An empty knowledge base returns the fixed abstention. The endpoint does not send messages or change orders.
 
 Run the suite with `python -m pytest`. Milestone 5 tests cover seven intent/priority examples, validated tool inputs, the knowledge path, empty-evidence abstention, order-ID collection, human escalation, and FastAPI responses. The tests use fake providers and do not call Gemini.
 
 ### Reliability, security, and acceptance
 
-Request shape is validated by Pydantic, tool arguments are revalidated at invocation, retrieval retains tenant/active-document filtering, and provider/store failures use bounded service errors. Classification is a transparent heuristic baseline, not a trained accuracy claim. Authentication and authorization are still not implemented, and graph state is not persisted across requests.
+Request shape is validated by Pydantic, tool arguments are revalidated at invocation, retrieval retains tenant/active-document filtering, and provider/store failures use bounded service errors. Classification is a transparent heuristic baseline, not a trained accuracy claim. Authentication and authorization are still not implemented.
 
 Acceptance: the test suite passes; `/agent/run` returns a cited answer for the synthetic damaged-item policy; a missing order number is requested; a sensitive complaint routes to human review; unsupported knowledge abstains. LangGraph's [Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api) and [quickstart](https://docs.langchain.com/oss/python/langgraph/quickstart) describe the state/node/edge model and tool-enabled workflows used here.
 
@@ -474,9 +474,75 @@ The seed command is idempotent and inserts only absent IDs. Use an unknown ident
 
 Files: `app/tools/support_records.py` defines the validated DB tools; `app/agent/classification.py` recognizes ticket-status requests; `app/agent/workflow.py` routes and formats the results; `scripts/seed_demo_records.py` seeds the demo; workflow tests cover missing identifiers, found records, and not-found behavior.
 
+## Milestone 7 — validation, recovery, approval, and checkpoints
+
+Every `/agent/run` creates a UUID workflow record in PostgreSQL. The API passes that ID as LangGraph's `thread_id`; `PostgresSaver` writes execution checkpoints to PostgreSQL so an interrupted graph can resume after the API process restarts. On first agent use, the saver creates its checkpoint tables with `setup()`. The app also keeps a concise public state snapshot in `workflow_executions.state_json`, while `approval_requests` records the reviewer decision. Checkpoints use the LangGraph serializer's safe built-in type allowlist.
+
+The sensitive complaint route calls LangGraph `interrupt()` with a review payload. The API stores a pending approval and returns `status: "approval_pending"`, `workflow_id`, and `approval_id`; no outgoing message is sent. A reviewer can inspect the persisted status and resume the paused graph with an approval or rejection. An approved draft is marked `approved` and still requires a person to send it manually. A rejected draft returns to manual triage. Duplicate decisions return HTTP 409.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as FastAPI
+    participant G as LangGraph
+    participant P as PostgreSQL
+    C->>A: POST /agent/run
+    A->>P: Insert workflow execution
+    A->>G: Invoke with thread_id = workflow UUID
+    G->>P: Save checkpoint at interrupt()
+    A->>P: Insert pending approval; set waiting_approval
+    A-->>C: approval_pending + workflow_id
+    C->>A: GET /agent/{workflow_id}?tenant_id=demo
+    A->>P: Read workflow and approval status
+    A-->>C: Current workflow snapshot
+    C->>A: POST /agent/{workflow_id}/decision
+    A->>G: Command(resume=decision), same thread_id
+    G->>P: Read checkpoint and save final state
+    A->>P: Record decision and completed workflow state
+    A-->>C: approved or rejected result
+```
+
+Rebuild and start the project after installing the pinned dependency:
+
+```powershell
+python -m pip install -e ".[dev]"
+docker compose up --build -d
+```
+
+Try a complaint that must pause for review, then inspect and approve it:
+
+```powershell
+$pending = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/agent/run -ContentType "application/json" -Body '{"tenant_id":"demo","message":"I want to make a complaint about an unsafe product"}'
+$pending
+Invoke-RestMethod "http://127.0.0.1:8000/agent/$($pending.workflow_id)?tenant_id=demo"
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/agent/$($pending.workflow_id)/decision" -ContentType "application/json" -Body '{"tenant_id":"demo","decision":"approve","edited_answer":"A support specialist will contact you about this report."}'
+```
+
+The start response should include `status: "approval_pending"`. The decision response should include `status: "approved"` and `next_action: "send_approved_reply_manually"`. To reject, pass `"decision":"reject"`; to see the duplicate-decision guard, submit a second decision and expect HTTP 409. `GET /agent/{workflow_id}` is scoped by the supplied tenant ID, but tenant IDs are not authenticated yet; do not expose this demo API publicly.
+
+Output is validated with `AgentResponse` before returning. The Gemini adapter retries HTTP 503 up to three times with bounded backoff, invalid structured answer output safely abstains, and workflow exceptions are recorded as `failed` with an error class before a sanitized API error is returned. This milestone does not add retries for database or Qdrant errors, and it never sends an approved reply.
+
+Files: `app/agent/checkpointer.py` manages the bounded checkpoint pool and safe serializer; `app/agent/workflow.py` pauses and resumes on human review; `app/api/agent.py` persists runs, exposes status/decision endpoints, validates output, and records failures; `app/schemas/agent.py` validates decisions and responses. Tests exercise pause/resume, approved edits, workflow status, and the duplicate-decision guard.
+
 ## Configuration and data handling
 
 Copy `.env.example` to `.env` for local configuration. Never commit `.env` or real customer data. All customer/order examples in this portfolio project must be synthetic.
+
+## Streamlit demo UI
+
+The local Streamlit console gives you one place to try the implemented flows: upload and list knowledge documents, ask a question and inspect citations, look up synthetic orders/tickets, and load and decide pending human-review workflows. It calls FastAPI over HTTP; provider keys remain in the API's `.env` and are never entered into the UI.
+
+Install the optional UI dependency and launch the API and UI in separate PowerShell terminals:
+
+```powershell
+python -m pip install -e ".[dev,ui]"
+docker compose up --build -d
+streamlit run frontend/streamlit_app.py --server.address 127.0.0.1
+```
+
+Open `http://localhost:8501`. The API defaults to `http://127.0.0.1:8000`; use **Check API** in the sidebar to verify readiness. Upload a policy first, then ask a question on **Ask SupportPilot**. For mock lookup examples, seed the demo records with `docker compose exec api python -m scripts.seed_demo_records`, then use `ORD-1001` or `TKT-2001` on **Orders & Tickets**. Start a sensitive complaint to see it appear in **Human Review**, where you can approve an edited draft or reject it for triage. The interface does not send messages.
+
+The UI is intended for a local synthetic-data demo. The API has no authentication, so do not bind the UI or API to a public interface.
 
 ## Current status
 
@@ -486,6 +552,8 @@ Copy `.env.example` to `.env` for local configuration. Never commit `.env` or re
 - Milestone 4: complete; live answer generation verified with `gemini-3.6-flash`, including a citation to the damaged-items policy section.
 - Milestone 5: complete; 36 tests pass, and live Compose checks verified cited knowledge answers, order-ID collection, and urgent complaint escalation.
 - Milestone 6: mock order and ticket lookup tools are tenant-scoped and read-only; run the seeder and use `ORD-1001` or `TKT-2001` for the demo.
-- Milestones 7–10: not started.
+- Milestone 7: PostgreSQL checkpointing and human approval implemented; 43 tests pass with in-memory checkpoints. Live PostgreSQL checkpoint/resume verification is pending because Docker Desktop is unavailable in the current environment.
+- Milestone 8: initial Streamlit testing console implemented for document ingestion, knowledge answers, order/ticket lookups, and human approval. Local Streamlit health responds; API-backed checks await the Docker-backed API.
+- Milestones 9–10: not started.
 
 SupportPilot AI is an independently developed portfolio project, not a client-sponsored deployment.
