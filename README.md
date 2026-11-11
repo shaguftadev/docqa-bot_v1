@@ -580,6 +580,6 @@ This milestone does not measure Gemini answer factuality, token cost, load capac
 - Milestone 9: versioned agent and retrieval datasets, offline graph evaluator, live retrieval evaluator, and tests added; 47 tests pass. Agent and live retrieval baselines are recorded in `reports/evaluation/` with their measurement scope and limits.
 - Milestone 10: the full local Compose stack includes the Streamlit UI; deployment guidance, portfolio case study, demo script, and Upwork portfolio copy are documented.
 
-See the [portfolio case study](docs/portfolio_case_study.md) for architecture, measured results, and limitations, and [Upwork portfolio copy and service packages](docs/upwork_portfolio.md) for editable profile material. The Compose stack is for local/private demos only, not public customer traffic.
+See the [portfolio case study](docs/portfolio_case_study.md) for architecture and measured results, the [production readiness gap tracker](docs/production_readiness.md) for the remaining work and closure evidence, and [Upwork portfolio copy and service packages](docs/upwork_portfolio.md) for editable profile material. The Compose stack is for local/private demos only, not public customer traffic.
 
 SupportPilot AI is an independently developed portfolio project, not a client-sponsored deployment.

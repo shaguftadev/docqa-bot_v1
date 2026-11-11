@@ -4,7 +4,7 @@
 
 The checked-in Compose stack is for local development and a private portfolio demo. It starts FastAPI, PostgreSQL, Qdrant, and Streamlit. Host ports are bound to loopback; PostgreSQL is only reachable on the internal Compose network. Compose waits for PostgreSQL health before starting the API, and the UI waits for the API health check. Docker documents that `service_healthy` dependencies wait for a passing health check, and recommends an additional Compose file for environment-specific production changes ([startup ordering](https://docs.docker.com/compose/how-tos/startup-order/), [Compose in production](https://docs.docker.com/compose/how-tos/production/)).
 
-This is not ready for public customer traffic. It has no authentication or authorization, tenant IDs are supplied by the caller, and the included database password is a local development value. Keep the UI/API private until those controls and operational requirements are implemented and reviewed.
+This is not ready for public customer traffic. It has no authentication or authorization, tenant IDs are supplied by the caller, and the included database password is a local development value. The full open-gap list and closure evidence are tracked in [production readiness gaps](production_readiness.md). Keep the UI/API private until those controls and operational requirements are implemented and reviewed.
 
 ## Local setup
 
