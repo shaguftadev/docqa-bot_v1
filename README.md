@@ -544,6 +544,29 @@ Open `http://localhost:8501`. The API defaults to `http://127.0.0.1:8000`; use *
 
 The UI is intended for a local synthetic-data demo. The API has no authentication, so do not bind the UI or API to a public interface.
 
+## Milestone 9 — tests, evaluation data, and measurements
+
+The automated suite covers API and service behavior, and dataset checks keep the labeled examples aligned with the deterministic classifier. `data/eval/agent_cases.jsonl` contains 19 synthetic examples with expected intent, priority, route, tool selection, final workflow status, and human-review expectation. `scripts/evaluate_agent.py` runs those examples through the graph with stub tools and an in-memory checkpointer. It reports exact-match accuracies and graph invocation latency; the checked-in baseline is `reports/evaluation/agent_baseline.json`.
+
+The baseline measured 19/19 correct for intent, priority, route, tool selection, status, and human-review routing. The recorded local graph invocation p50 was 2.054 ms and p95 was 5.091 ms. These latency values cover an in-process graph with stub tools and `InMemorySaver`; they exclude PostgreSQL, Qdrant, embedding generation, Gemini, and network time. The 100% scores reflect a small, hand-authored set designed around current deterministic rules; they do not estimate production accuracy.
+
+Retrieval examples in `data/eval/retrieval_cases.jsonl` label expected `(filename, section)` targets. The live search evaluator computes Recall@k and MRR and times `POST /knowledge/search` across repeat runs. On the synthetic return-policy set, the recorded run measured Recall@5 1.0, MRR 1.0, p50 53.87 ms, and p95 55.63 ms across 3 queries × 3 requests. This tiny single-document result only checks that the current pipeline retrieves the labeled sections; it is not a general retrieval-quality or production-latency claim. Start Compose, upload the synthetic policy document to tenant `demo` from the UI, then run:
+
+```powershell
+python -m scripts.evaluate_retrieval --tenant-id demo --k 5 --repeats 3 --output reports/evaluation/retrieval_baseline.json
+```
+
+The retrieval evaluator requires a working API, database, Qdrant collection, and indexed sample document. Its search latency excludes answer generation and UI rendering. The measured artifact is `reports/evaluation/retrieval_baseline.json`.
+
+Run the offline evaluation and suite with:
+
+```powershell
+python -m scripts.evaluate_agent --output reports/evaluation/agent_baseline.json
+python -m pytest
+```
+
+This milestone does not measure Gemini answer factuality, token cost, load capacity, or production traffic. Those require a reviewed answer dataset and realistic hosted dependencies.
+
 ## Current status
 
 - Milestone 1: complete (verified Python 3.11.9).
@@ -552,8 +575,9 @@ The UI is intended for a local synthetic-data demo. The API has no authenticatio
 - Milestone 4: complete; live answer generation verified with `gemini-3.6-flash`, including a citation to the damaged-items policy section.
 - Milestone 5: complete; 36 tests pass, and live Compose checks verified cited knowledge answers, order-ID collection, and urgent complaint escalation.
 - Milestone 6: mock order and ticket lookup tools are tenant-scoped and read-only; run the seeder and use `ORD-1001` or `TKT-2001` for the demo.
-- Milestone 7: PostgreSQL checkpointing and human approval implemented; 43 tests pass with in-memory checkpoints. Live PostgreSQL checkpoint/resume verification is pending because Docker Desktop is unavailable in the current environment.
-- Milestone 8: initial Streamlit testing console implemented for document ingestion, knowledge answers, order/ticket lookups, and human approval. Local Streamlit health responds; API-backed checks await the Docker-backed API.
-- Milestones 9–10: not started.
+- Milestone 7: PostgreSQL checkpointing and human approval implemented; automated pause/resume tests use `InMemorySaver`. The current API image exposes status and decision endpoints; durable PostgreSQL pause/resume has not been exercised end to end yet.
+- Milestone 8: initial Streamlit testing console implemented for document ingestion, knowledge answers, order/ticket lookups, and human approval. Loopback health responds; a full browser workflow check is still useful.
+- Milestone 9: versioned agent and retrieval datasets, offline graph evaluator, live retrieval evaluator, and tests added; 47 tests pass. Agent and live retrieval baselines are recorded in `reports/evaluation/` with their measurement scope and limits.
+- Milestone 10: not started.
 
 SupportPilot AI is an independently developed portfolio project, not a client-sponsored deployment.

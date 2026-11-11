@@ -1,0 +1,24 @@
+{
+  "generated_at_utc": "2026-11-11T07:23:09.368071+00:00",
+  "dataset": "data/eval/agent_cases.jsonl",
+  "runtime": {
+    "python": "3.11.9",
+    "langgraph": "1.2.20"
+  },
+  "cases": 19,
+  "metrics": {
+    "intent_accuracy": 1.0,
+    "priority_accuracy": 1.0,
+    "route_accuracy": 1.0,
+    "tool_selection_accuracy": 1.0,
+    "status_accuracy": 1.0,
+    "human_review_accuracy": 1.0
+  },
+  "workflow_latency_ms": {
+    "p50": 2.054,
+    "p95": 5.091,
+    "scope": "single-process graph invocation with stub tools, InMemorySaver, no DB, Qdrant, or LLM"
+  },
+  "passed": true,
+  "failures": []
+}

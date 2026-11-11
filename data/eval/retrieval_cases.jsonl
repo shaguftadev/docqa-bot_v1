@@ -1,0 +1,3 @@
+{"id":"damaged_item_policy","query":"What should I do if my item arrived damaged?","expected_relevant":[{"filename":"return_policy.md","section":"Damaged items"}]}
+{"id":"unused_return_window","query":"How many days do I have to return an unused item?","expected_relevant":[{"filename":"return_policy.md","section":"Returns and refunds"}]}
+{"id":"refund_processing_time","query":"How long does an approved refund take to appear?","expected_relevant":[{"filename":"return_policy.md","section":"Refund timing"}]}

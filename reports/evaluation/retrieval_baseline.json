@@ -1,0 +1,88 @@
+{
+  "generated_at_utc": "2026-11-11T07:25:54.606162+00:00",
+  "api_base_url": "http://127.0.0.1:8000",
+  "dataset": "data/eval/retrieval_cases.jsonl",
+  "dataset_cases": 3,
+  "tenant_id": "demo",
+  "k": 5,
+  "repeats_per_query": 3,
+  "metrics": {
+    "recall_at_5": 1.0,
+    "mrr": 1.0
+  },
+  "search_latency_ms": {
+    "sample_count": 9,
+    "p50": 53.87,
+    "p95": 55.63,
+    "mean": 52.83,
+    "scope": "POST /knowledge/search; excludes answer generation and UI rendering"
+  },
+  "cases": [
+    {
+      "id": "damaged_item_policy",
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_hits": [
+        {
+          "filename": "return_policy.md",
+          "section": "Damaged items",
+          "score": 0.75612414
+        },
+        {
+          "filename": "return_policy.md",
+          "section": "Returns and refunds",
+          "score": 0.66570675
+        },
+        {
+          "filename": "return_policy.md",
+          "section": "Refund timing",
+          "score": 0.53356606
+        }
+      ]
+    },
+    {
+      "id": "unused_return_window",
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_hits": [
+        {
+          "filename": "return_policy.md",
+          "section": "Returns and refunds",
+          "score": 0.9017338
+        },
+        {
+          "filename": "return_policy.md",
+          "section": "Damaged items",
+          "score": 0.7691996
+        },
+        {
+          "filename": "return_policy.md",
+          "section": "Refund timing",
+          "score": 0.71589214
+        }
+      ]
+    },
+    {
+      "id": "refund_processing_time",
+      "recall_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "top_hits": [
+        {
+          "filename": "return_policy.md",
+          "section": "Refund timing",
+          "score": 0.89520276
+        },
+        {
+          "filename": "return_policy.md",
+          "section": "Returns and refunds",
+          "score": 0.77976716
+        },
+        {
+          "filename": "return_policy.md",
+          "section": "Damaged items",
+          "score": 0.7714582
+        }
+      ]
+    }
+  ]
+}
