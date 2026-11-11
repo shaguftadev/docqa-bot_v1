@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     cognito_app_client_id: str | None = None
     cognito_tenant_claim: str = "tenant_id"
     cognito_resource_audience: str | None = None
+    cognito_approval_scope: str = "support/approve"
 
     @field_validator("cognito_issuer", "cognito_app_client_id", "cognito_resource_audience", mode="before")
     @classmethod
@@ -62,6 +63,8 @@ class Settings(BaseSettings):
                 raise ValueError("COGNITO_ISSUER must be an HTTPS issuer URL without query or fragment")
             if not self.cognito_tenant_claim.strip():
                 raise ValueError("COGNITO_TENANT_CLAIM must not be empty")
+            if not self.cognito_approval_scope.strip():
+                raise ValueError("COGNITO_APPROVAL_SCOPE must not be empty")
         return self
 
 

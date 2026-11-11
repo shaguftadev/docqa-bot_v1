@@ -40,9 +40,12 @@ AUTH_ENABLED=true
 COGNITO_ISSUER=https://cognito-idp.<region>.amazonaws.com/<user-pool-id>
 COGNITO_APP_CLIENT_ID=<app-client-id>
 COGNITO_TENANT_CLAIM=tenant_id
+COGNITO_APPROVAL_SCOPE=support/approve
 ```
 
 Configure a Cognito pre-token-generation trigger to add a trusted `tenant_id` claim to **access tokens**. Do not let end users edit the claim as a writable profile attribute. See the [Cognito setup guide](cognito_setup.md) for a reference Lambda, claim assignment rules, and verification steps. AWS documents that pre-token-generation triggers can customize access-token claims ([trigger guide](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html)).
+
+Approval decisions additionally require the configured `COGNITO_APPROVAL_SCOPE` (`support/approve` by default) in the verified access token. Grant that scope only to reviewer identities in the Cognito resource server/app-client configuration; tenant membership alone does not authorize approving or rejecting a draft.
 
 The Streamlit UI has a password-style field for a short-lived Cognito access token; it does not implement the Cognito hosted sign-in flow, refresh, logout, or secure browser session management. This API validation is a security foundation, not authorization-complete production SSO. Keep the application private until the remaining readiness checklist is closed.
 

@@ -13,6 +13,7 @@ from app.core.auth import (
     Principal,
     enforce_tenant_access,
     get_current_principal,
+    require_scope,
     verify_cognito_access_token,
 )
 from app.core.config import Settings
@@ -103,6 +104,43 @@ def test_tenant_claim_enforces_request_scope():
         enforce_tenant_access(Principal("user-123", "tenant-a"), "tenant-b")
 
     assert exc_info.value.status_code == 403
+
+
+def test_approval_scope_is_required_only_when_authentication_is_enabled(cognito_settings):
+    with pytest.raises(HTTPException) as exc_info:
+        require_scope(Principal("user-123", "tenant-a", frozenset({"support/read"})),
+                      cognito_settings.cognito_approval_scope, cognito_settings)
+    assert exc_info.value.status_code == 403
+
+    reviewer = Principal("reviewer-123", "tenant-a", frozenset({"support/approve"}))
+    require_scope(reviewer, cognito_settings.cognito_approval_scope, cognito_settings)
+
+    local_settings = Settings(_env_file=None, app_env="local", auth_enabled=False)
+    require_scope(Principal("local-demo", None), local_settings.cognito_approval_scope, local_settings)
+
+
+def test_approval_endpoint_rejects_tenant_member_without_reviewer_scope(cognito_settings):
+    from uuid import uuid4
+
+    app.dependency_overrides[get_settings] = lambda: cognito_settings
+    app.dependency_overrides[get_current_principal] = lambda: Principal(
+        "user-123", "tenant-a", frozenset({"support/read"})
+    )
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_embedder] = lambda: object()
+    app.dependency_overrides[get_vector_store] = lambda: object()
+    app.dependency_overrides[get_checkpointer] = lambda: object()
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/agent/{uuid4()}/decision",
+                json={"tenant_id": "tenant-a", "decision": "approve"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Required permission is missing"
 
 
 def test_auth_enabled_rejects_missing_bearer_token(cognito_settings):

@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.agent.checkpointer import get_checkpointer
 from app.agent.workflow import build_support_graph, initial_state
-from app.core.auth import Principal, enforce_tenant_access, get_current_principal
+from app.core.auth import Principal, enforce_tenant_access, get_current_principal, require_scope
+from app.core.config import Settings, get_settings
 from app.db.models import ApprovalRequest, WorkflowExecution
 from app.db.session import get_db
 from app.embeddings.provider import Embedder, EmbeddingProviderError, get_embedder
@@ -208,7 +209,9 @@ def decide_human_review(
     embedder: Annotated[Embedder, Depends(get_embedder)],
     vector_store: Annotated[QdrantVectorStore, Depends(get_vector_store)],
     checkpointer: Annotated[BaseCheckpointSaver, Depends(get_checkpointer)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> AgentResponse:
+    require_scope(principal, settings.cognito_approval_scope, settings)
     enforce_tenant_access(principal, decision.tenant_id)
     workflow = db.scalar(select(WorkflowExecution).where(
         WorkflowExecution.id == workflow_id,

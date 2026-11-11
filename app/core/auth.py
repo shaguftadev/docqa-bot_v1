@@ -104,3 +104,9 @@ def enforce_tenant_access(principal: Principal, requested_tenant_id: str) -> Non
     """Reject caller-selected tenant IDs that differ from verified identity claims."""
     if principal.tenant_id is not None and principal.tenant_id != requested_tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant access denied")
+
+
+def require_scope(principal: Principal, required_scope: str, settings: Settings) -> None:
+    """Require an explicit Cognito scope for privileged operations when auth is enabled."""
+    if settings.auth_enabled and required_scope not in principal.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Required permission is missing")

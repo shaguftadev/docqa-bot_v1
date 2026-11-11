@@ -37,6 +37,7 @@ services:
       COGNITO_APP_CLIENT_ID: ${COGNITO_APP_CLIENT_ID:-}
       COGNITO_TENANT_CLAIM: ${COGNITO_TENANT_CLAIM:-tenant_id}
       COGNITO_RESOURCE_AUDIENCE: ${COGNITO_RESOURCE_AUDIENCE:-}
+      COGNITO_APPROVAL_SCOPE: ${COGNITO_APPROVAL_SCOPE:-support/approve}
     volumes:
       - embedding_model_cache:/models/fastembed
     ports:

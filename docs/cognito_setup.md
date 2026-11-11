@@ -29,6 +29,7 @@ Every API access token must carry a signed `tenant_id` claim. The provided trigg
    COGNITO_ISSUER=https://cognito-idp.<region>.amazonaws.com/<user-pool-id>
    COGNITO_APP_CLIENT_ID=<app-client-id>
    COGNITO_TENANT_CLAIM=tenant_id
+   COGNITO_APPROVAL_SCOPE=support/approve
    ```
 
    Set `COGNITO_RESOURCE_AUDIENCE` only if you configure resource-bound access tokens. Use the issuer URL exactly as it appears in the token's `iss` claim.
@@ -40,5 +41,6 @@ Every API access token must carry a signed `tenant_id` claim. The provided trigg
 - Configure the Streamlit UI's Cognito access-token field with a short-lived token. The UI currently has no hosted sign-in, refresh, or logout implementation.
 - Verify a request for the token's tenant succeeds and a request naming a different tenant returns HTTP 403. Missing, expired, wrong-client, ID, or tenant-less tokens must return HTTP 401.
 - Confirm app-client users cannot edit `custom:tenant_id`; otherwise tenant authorization can be self-assigned and is not trustworthy.
+- Configure the Cognito resource server/app client to grant `support/approve` only to reviewer identities. Authenticated users without that scope can read and work within their tenant but receive HTTP 403 when submitting approval decisions. The local auth-disabled demo bypasses this check.
 
 No real user pool has been configured or tested in this repository yet. Keep `AUTH_ENABLED=false` for local Compose; non-local environments must enable auth and supply valid Cognito configuration.
