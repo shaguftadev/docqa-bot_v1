@@ -10,6 +10,17 @@ from typing import Any
 import streamlit as st
 
 from api_client import ApiError, request_json
+from cognito_login import (
+    CognitoLoginError,
+    CognitoUiConfig,
+    consume_pkce_verifier,
+    exchange_code,
+    new_oauth_state,
+    new_pkce_verifier,
+    register_pkce_transaction,
+    refresh_tokens,
+    valid_token_set,
+)
 
 
 st.set_page_config(page_title="SupportPilot AI", page_icon="🛟", layout="wide")
@@ -32,6 +43,37 @@ for key, default in (("last_support_result", None), ("last_workflow_status", Non
     if key not in st.session_state:
         st.session_state[key] = default
 
+try:
+    cognito_ui = CognitoUiConfig.from_environment(dict(os.environ))
+except CognitoLoginError as exc:
+    cognito_ui = None
+    st.error(str(exc))
+
+if cognito_ui:
+    signed_out = st.query_params.get("signed_out")
+    if signed_out:
+        for key in ("cognito_tokens", "last_support_result", "last_workflow_status", "approval_workflow_id"):
+            st.session_state.pop(key, None)
+        st.query_params.clear()
+        st.session_state.cognito_signed_out = True
+    oauth_error = st.query_params.get("error")
+    oauth_code = st.query_params.get("code")
+    oauth_state = st.query_params.get("state")
+    if oauth_error:
+        st.query_params.clear()
+        st.error("Cognito sign-in was not completed. Please try again.")
+    elif oauth_code:
+        st.query_params.clear()
+        verifier = consume_pkce_verifier(oauth_state or "")
+        if not verifier:
+            st.error("Sign-in verification failed. Start sign-in again.")
+        else:
+            try:
+                st.session_state.cognito_tokens = exchange_code(cognito_ui, oauth_code, verifier)
+                st.rerun()
+            except CognitoLoginError as exc:
+                st.error(str(exc))
+
 with st.sidebar:
     st.subheader("Connection")
     api_base_url = st.text_input(
@@ -39,8 +81,41 @@ with st.sidebar:
         os.getenv("SUPPORTPILOT_API_URL", "http://127.0.0.1:8000"),
     ).strip().rstrip("/")
     tenant_id = st.text_input("Tenant ID", "demo").strip() or "demo"
-    api_access_token = st.text_input("Cognito access token (optional)", type="password")
-    st.caption("Use an access token, not an ID token. The token is sent to the configured API as a bearer credential.")
+    if cognito_ui:
+        tokens = st.session_state.get("cognito_tokens")
+        if tokens and not valid_token_set(tokens) and tokens.get("refresh_token"):
+            try:
+                st.session_state.cognito_tokens = refresh_tokens(cognito_ui, tokens["refresh_token"])
+                tokens = st.session_state.cognito_tokens
+            except CognitoLoginError:
+                st.session_state.pop("cognito_tokens", None)
+                tokens = None
+        elif tokens and not valid_token_set(tokens):
+            st.session_state.pop("cognito_tokens", None)
+            tokens = None
+        if tokens and valid_token_set(tokens):
+            st.success("Signed in with Cognito")
+            st.link_button("Sign out", cognito_ui.logout_url(), use_container_width=True)
+        else:
+            if st.button("Start sign-in", type="primary", use_container_width=True):
+                state = new_oauth_state()
+                verifier = new_pkce_verifier()
+                register_pkce_transaction(state, verifier)
+                st.session_state.cognito_oauth_state = state
+                st.session_state.cognito_pkce_verifier = verifier
+            if st.session_state.get("cognito_oauth_state"):
+                login_url = cognito_ui.authorization_url(
+                    st.session_state.cognito_oauth_state,
+                    st.session_state.cognito_pkce_verifier,
+                )
+                st.link_button("Sign in with Cognito", login_url, use_container_width=True)
+            st.caption("Configure the Cognito Hosted UI and callback URLs to enable sign-in.")
+        api_access_token = (st.session_state.get("cognito_tokens") or {}).get("access_token", "")
+        if st.session_state.pop("cognito_signed_out", False):
+            st.info("Signed out of Cognito.")
+    else:
+        api_access_token = st.text_input("Cognito access token (optional)", type="password")
+        st.caption("Use an access token, not an ID token. The token is sent to the configured API as a bearer credential.")
     if st.button("Check API", use_container_width=True):
         try:
             health = request_json(api_base_url, "GET", "/health/ready", timeout=5)
@@ -53,8 +128,8 @@ with st.sidebar:
 
 def call_api(api_base_url: str, method: str, path: str, **kwargs):
     headers = dict(kwargs.pop("headers", {}))
-    if api_access_token.strip():
-        headers["Authorization"] = f"Bearer {api_access_token.strip()}"
+    if api_access_token:
+        headers["Authorization"] = f"Bearer {api_access_token}"
     return request_json(api_base_url, method, path, headers=headers, **kwargs)
 
 

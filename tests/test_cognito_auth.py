@@ -213,8 +213,28 @@ def test_cognito_trigger_adds_only_trusted_access_token_tenant_claim():
     result = lambda_handler(event, None)
 
     assert result["response"]["claimsAndScopeOverrideDetails"] == {
-        "accessTokenGeneration": {"claimsToAddOrOverride": {"tenant_id": "tenant-a"}}
+        "accessTokenGeneration": {
+            "claimsToAddOrOverride": {"tenant_id": "tenant-a"},
+            "scopesToSuppress": ["support/approve"],
+        }
     }
+
+
+def test_cognito_trigger_grants_approval_scope_only_to_reviewer_group(monkeypatch):
+    event = {
+        "version": "2",
+        "request": {
+            "userAttributes": {"custom:tenant_id": "tenant-a"},
+            "groupConfiguration": {"groupsToOverride": ["SupportReviewers"]},
+        },
+        "response": {"claimsAndScopeOverrideDetails": {}},
+    }
+
+    result = lambda_handler(event, None)
+
+    access_token = result["response"]["claimsAndScopeOverrideDetails"]["accessTokenGeneration"]
+    assert access_token["scopesToAdd"] == ["support/approve"]
+    assert "scopesToSuppress" not in access_token
 
 
 @pytest.mark.parametrize(

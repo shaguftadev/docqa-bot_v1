@@ -4,7 +4,7 @@
 
 The checked-in Compose stack is for local development and a private portfolio demo. It starts FastAPI, PostgreSQL, Qdrant, and Streamlit. Host ports are bound to loopback; PostgreSQL is only reachable on the internal Compose network. Compose waits for PostgreSQL health before starting the API, and the UI waits for the API health check. Docker documents that `service_healthy` dependencies wait for a passing health check, and recommends an additional Compose file for environment-specific production changes ([startup ordering](https://docs.docker.com/compose/how-tos/startup-order/), [Compose in production](https://docs.docker.com/compose/how-tos/production/)).
 
-This is not ready for public customer traffic. It has no authentication or authorization, tenant IDs are supplied by the caller, and the included database password is a local development value. The full open-gap list and closure evidence are tracked in [production readiness gaps](production_readiness.md). Keep the UI/API private until those controls and operational requirements are implemented and reviewed.
+This is not ready for public customer traffic. Local Compose runs with authentication disabled, tenant IDs are supplied by the caller in that mode, and the included database password is a local development value. Optional Cognito access-token authentication and tenant enforcement are available when configured; they are not a substitute for the remaining operational controls. The full open-gap list and closure evidence are tracked in [production readiness gaps](production_readiness.md). Keep the UI/API private until those controls and operational requirements are implemented and reviewed.
 
 ## Local setup
 
@@ -45,9 +45,9 @@ COGNITO_APPROVAL_SCOPE=support/approve
 
 Configure a Cognito pre-token-generation trigger to add a trusted `tenant_id` claim to **access tokens**. Do not let end users edit the claim as a writable profile attribute. See the [Cognito setup guide](cognito_setup.md) for a reference Lambda, claim assignment rules, and verification steps. AWS documents that pre-token-generation triggers can customize access-token claims ([trigger guide](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-pre-token-generation.html)).
 
-Approval decisions additionally require the configured `COGNITO_APPROVAL_SCOPE` (`support/approve` by default) in the verified access token. Grant that scope only to reviewer identities in the Cognito resource server/app-client configuration; tenant membership alone does not authorize approving or rejecting a draft.
+Approval decisions additionally require the configured `COGNITO_APPROVAL_SCOPE` (`support/approve` by default) in the verified access token. The reference trigger grants it only to the administrator-managed `SupportReviewers` Cognito group and suppresses it for other users; tenant membership alone does not authorize approving or rejecting a draft.
 
-The Streamlit UI has a password-style field for a short-lived Cognito access token; it does not implement the Cognito hosted sign-in flow, refresh, logout, or secure browser session management. This API validation is a security foundation, not authorization-complete production SSO. Keep the application private until the remaining readiness checklist is closed.
+The Streamlit UI can use Cognito Hosted UI authorization-code sign-in with PKCE, refresh, and logout when its `SUPPORTPILOT_COGNITO_*` settings are configured; otherwise it retains the manual access-token field. Session tokens are held in Streamlit server memory. No real pool has been connected or verified, and secure production session operations still need review. Keep the application private until the remaining readiness checklist is closed.
 
 ## Operations
 

@@ -13,7 +13,7 @@ The system is designed to show controlled agent behavior: explicit routing, vali
 - Escalate sensitive or uncertain requests for human approval.
 - Demonstrate the workflow through FastAPI and Streamlit, backed by PostgreSQL metadata and LangGraph orchestration.
 
-The local demo uses synthetic data only and leaves authentication disabled. The API has an optional Cognito access-token validation mode that enforces the verified tenant claim; hosted sign-in, roles/scopes, rate limiting, and deployment controls remain follow-up work.
+The local demo uses synthetic data only and leaves API authentication disabled. When configured with Cognito Hosted UI settings, the Streamlit interface supports authorization-code sign-in with PKCE, token refresh, and logout. The API has optional Cognito access-token validation and tenant checks; real-pool setup, hosted login verification, rate limiting, and deployment controls remain follow-up work.
 
 ## Architecture
 
@@ -221,7 +221,7 @@ The full template is in `.env.example`. Key settings are `DATABASE_URL`, `QDRANT
 
 ### Security and reliability limits
 
-`.env` is excluded from Git. Compose binds published services to loopback, uses bounded database connect/pool timeouts, and exposes no automatic customer action. The included Compose password is for local development only. Local Compose has `AUTH_ENABLED=false`. The API can validate Cognito access tokens when enabled, rejects tenant IDs that differ from the signed `tenant_id` claim, and requires a reviewer scope for approval decisions. A Cognito user pool, trusted tenant-claim trigger, hosted UI login, rate limiting, TLS, secret management, and production database operations are not configured. Do not expose this Compose setup publicly. See [production readiness gaps](docs/production_readiness.md).
+`.env` is excluded from Git. Compose binds published services to loopback, uses bounded database connect/pool timeouts, and exposes no automatic customer action. The included Compose password is for local development only. Local Compose has `AUTH_ENABLED=false`. The API can validate Cognito access tokens when enabled, rejects tenant IDs that differ from the signed `tenant_id` claim, and requires a reviewer scope for approval decisions. Cognito Hosted UI and a reviewer-group scope trigger are implemented but no user pool has been configured or verified. Rate limiting, TLS, secret management, and production database operations remain open. Do not expose this Compose setup publicly. See [production readiness gaps](docs/production_readiness.md).
 
 ### Acceptance criteria
 
@@ -518,7 +518,7 @@ Invoke-RestMethod "http://127.0.0.1:8000/agent/$($pending.workflow_id)?tenant_id
 Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/agent/$($pending.workflow_id)/decision" -ContentType "application/json" -Body '{"tenant_id":"demo","decision":"approve","edited_answer":"A support specialist will contact you about this report."}'
 ```
 
-The start response should include `status: "approval_pending"`. The decision response should include `status: "approved"` and `next_action: "send_approved_reply_manually"`. To reject, pass `"decision":"reject"`; to see the duplicate-decision guard, submit a second decision and expect HTTP 409. Local Compose leaves authentication disabled. When Cognito auth is enabled, `GET /agent/{workflow_id}` and decision routes require the requested tenant to match the verified access-token claim. The UI accepts a short-lived Cognito access token manually; hosted sign-in and reviewer role scopes are not implemented.
+The start response should include `status: "approval_pending"`. The decision response should include `status: "approved"` and `next_action: "send_approved_reply_manually"`. To reject, pass `"decision":"reject"`; to see the duplicate-decision guard, submit a second decision and expect HTTP 409. Local Compose leaves authentication disabled. When Cognito auth is enabled, `GET /agent/{workflow_id}` and decision routes require the requested tenant to match the verified access-token claim. The UI can accept a short-lived access token manually or use optional Cognito Hosted UI sign-in with PKCE when configured. Reviewer scope checks are enforced by the API when auth is enabled.
 
 Output is validated with `AgentResponse` before returning. The Gemini adapter retries HTTP 503 up to three times with bounded backoff, invalid structured answer output safely abstains, and workflow exceptions are recorded as `failed` with an error class before a sanitized API error is returned. This milestone does not add retries for database or Qdrant errors, and it never sends an approved reply.
 
@@ -542,7 +542,7 @@ Open `http://127.0.0.1:8501`. The UI container reaches FastAPI over the internal
 
 See [deployment and operations guidance](docs/deployment.md) and the [two-minute demo script](docs/demo_script.md).
 
-The UI is intended for a local synthetic-data demo. Cognito authentication is disabled in local Compose. The API's optional Cognito mode requires a configured user pool and trusted tenant claim, and the UI currently has no hosted sign-in or refresh flow. Do not bind this setup to a public interface.
+The UI is intended for a local synthetic-data demo. Cognito authentication is disabled in local Compose. The API's optional Cognito mode requires a configured user pool and trusted tenant claim. The UI supports Hosted UI sign-in and refresh when configured, but no Cognito pool has been connected or verified. Do not bind this setup to a public interface.
 
 ## Milestone 9 — tests, evaluation data, and measurements
 
