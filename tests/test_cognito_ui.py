@@ -92,3 +92,31 @@ def test_code_exchange_and_refresh_keep_session_refresh_token(monkeypatch):
     assert exchanged["access_token"] == "new-access"
     assert exchanged["expires_at"] > 0
     assert refreshed["refresh_token"] == "existing-refresh"
+
+
+def test_confidential_client_secret_is_sent_only_as_basic_auth(monkeypatch):
+    config = CognitoUiConfig(
+        "https://example.auth.us-east-1.amazoncognito.com",
+        "confidential-client",
+        "http://localhost:8501",
+        "http://localhost:8501",
+        client_secret="local-test-secret",
+    )
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"access_token": "access", "expires_in": 3600}
+
+    def fake_post(url, **kwargs):
+        captured.update(kwargs)
+        return Response()
+
+    monkeypatch.setattr("frontend.cognito_login.httpx.post", fake_post)
+    exchange_code(config, "code", "verifier")
+
+    assert captured["auth"] == ("confidential-client", "local-test-secret")
+    assert "local-test-secret" not in captured["data"].values()

@@ -10,7 +10,7 @@ Every API access token must carry a signed `tenant_id` claim. The provided trigg
 
 ## Configure the user pool
 
-1. Create or select a Cognito user pool and app client. Use a **public app client with no client secret**, enable the authorization-code grant and PKCE, and allow `openid`, `email`, and the custom `support/approve` scope. Create a resource server identifier `support` with scope `approve`. Register the callback URL `http://localhost:8501` and sign-out URL `http://localhost:8501/?signed_out=1` for local testing. Use a user pool issuer in this form:
+1. Use a Cognito app client with authorization-code grant and PKCE, and allow `openid`, `email`, and the custom `support/approve` scope. Create a resource server identifier `support` with scope `approve`. Register the callback URL `http://localhost:8501` and sign-out URL `http://localhost:8501/?signed_out=1` for local testing. The UI supports a public client without a secret or a confidential client; for a confidential client, store its secret only in `.env` or a secret manager. Use a user pool issuer in this form:
 
    ```text
    https://cognito-idp.<region>.amazonaws.com/<user-pool-id>
@@ -32,7 +32,8 @@ Every API access token must carry a signed `tenant_id` claim. The provided trigg
    COGNITO_TENANT_CLAIM=tenant_id
    COGNITO_APPROVAL_SCOPE=support/approve
    SUPPORTPILOT_COGNITO_DOMAIN=https://<your-cognito-domain>.auth.<region>.amazoncognito.com
-   SUPPORTPILOT_COGNITO_CLIENT_ID=<same-public-app-client-id>
+   SUPPORTPILOT_COGNITO_CLIENT_ID=<app-client-id>
+   SUPPORTPILOT_COGNITO_CLIENT_SECRET=<only-if-your-app-client-has-a-secret>
    SUPPORTPILOT_COGNITO_REDIRECT_URI=http://localhost:8501
    SUPPORTPILOT_COGNITO_LOGOUT_URI=http://localhost:8501/?signed_out=1
    SUPPORTPILOT_COGNITO_SCOPES=openid email support/approve

@@ -26,6 +26,7 @@ class CognitoUiConfig:
     client_id: str
     redirect_uri: str
     logout_uri: str
+    client_secret: str | None = None
     scopes: tuple[str, ...] = ("openid", "email", "support/approve")
 
     @classmethod
@@ -47,7 +48,8 @@ class CognitoUiConfig:
         ).split())
         if "openid" not in scopes:
             raise CognitoLoginError("Cognito sign-in scopes must include openid")
-        return cls(*values, scopes=scopes)
+        client_secret = environ.get("SUPPORTPILOT_COGNITO_CLIENT_SECRET", "").strip() or None
+        return cls(*values, client_secret=client_secret, scopes=scopes)
 
     def authorization_url(self, state: str, verifier: str) -> str:
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
@@ -106,6 +108,7 @@ def _token_request(config: CognitoUiConfig, data: dict[str, str]) -> dict:
         response = httpx.post(
             config.token_endpoint,
             data=data,
+            auth=(config.client_id, config.client_secret) if config.client_secret else None,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=10.0,
             trust_env=False,
